@@ -31,7 +31,7 @@ public class UserEFController : ControllerBase
     [HttpGet("GetSingleUser/{userId}")]
     public User GetSingleUser(int userId)
     {
-        User? user = _entityFramework.Users
+        User? user = _entsityFramework.Users
             .Where(u => u.UserId == userId)
             .FirstOrDefault<User>();
 
@@ -44,23 +44,26 @@ public class UserEFController : ControllerBase
 
     [HttpPut("EditUser")]
     public IActionResult EditUser(User user){
-        string sql = @"
-        UPDATE TutorialAppSchema.Users
-            SET [FirstName] = '" + user.FirstName + 
-                "', [LastName] = '" + user.LastName +
-                "', [Email] = '" + user.Email + 
-                "', [Gender] = '" + user.Gender + 
-                "', [Active] = '" + user.Active + 
-            "' WHERE UserId = " + user.UserId;
-
-        Console.WriteLine(sql);
-
-        if (_entityFramework.ExecuteSql(sql))
+        User? userDb = _entityFramework.Users
+            .Where(u => u.UserId == user.UserId)
+            .FirstOrDefault<User>();
+            
+        if (userDb != null)
         {
-            return Ok();
-        } 
+            userDb.Active = user.Active;
+            userDb.FirstName = user.FirstName;
+            userDb.LastName = user.LastName;
+            userDb.Email = user.Email;
+            userDb.Gender = user.Gender;
+            if (_entityFramework.SaveChanges() > 0)
+            {
+                return Ok();
+            } 
 
-        throw new Exception("Failed to Update User");
+            throw new Exception("Failed to Update User");
+        }
+        
+        throw new Exception("Failed to Get User");
     }
 
     [HttpPost("AddUser")]
