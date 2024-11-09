@@ -80,3 +80,4 @@ C:\Users\user\Desktop\my_dotnet\DotnetAPI\bin\Debug\net8.0\Microsoft.Extensions.
 C:\Users\user\Desktop\my_dotnet\DotnetAPI\bin\Debug\net8.0\Microsoft.Extensions.Logging.dll
 C:\Users\user\Desktop\my_dotnet\DotnetAPI\bin\Debug\net8.0\Microsoft.Extensions.Logging.Abstractions.dll
 C:\Users\user\Desktop\my_dotnet\DotnetAPI\bin\Debug\net8.0\Microsoft.Extensions.Options.dll
+C:\Users\user\Desktop\my_dotnet\DotnetAPI\obj\Debug\net8.0\DotnetAPI.sourcelink.json
