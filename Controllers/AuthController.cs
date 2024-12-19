@@ -12,7 +12,6 @@ using Microsoft.AspNetCore.Cryptography.KeyDerivation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.IdentityModel.Tokens;
-using Swashbuckle.AspNetCore.SwaggerUI;
 
 namespace DotnetAPI.Controllers
 {
@@ -21,8 +20,9 @@ namespace DotnetAPI.Controllers
     [Route("[controller]")]
     public class AuthController : ControllerBase
     {
-        private DataContextDapper _dapper;
+        private readonly DataContextDapper _dapper;
         private readonly AuthHelper _authHelper;
+
         public AuthController(IConfiguration config)
         {
             _dapper = new DataContextDapper(config);
@@ -31,34 +31,32 @@ namespace DotnetAPI.Controllers
 
         [AllowAnonymous]
         [HttpPost("Register")]
-        public IActionResult Regsiter(UserForRegistrationDto userForRegistration)
+        public IActionResult Register(UserForRegistrationDto userForRegistration)
         {
-            if(userForRegistration.Password == userForRegistration.PasswordConfirm)
+            if (userForRegistration.Password == userForRegistration.PasswordConfirm)
             {
                 string sqlCheckUserExists = "SELECT Email FROM TutorialAppSchema.Auth WHERE Email = '" +
                     userForRegistration.Email + "'";
 
                 IEnumerable<string> existingUsers = _dapper.LoadData<string>(sqlCheckUserExists);
-                if(existingUsers.Count() == 0 )
+                if (existingUsers.Count() == 0)
                 {
-                    UserForLoginDto userForSetPassword = new UserForLoginDto(){
+                    UserForLoginDto userForSetPassword = new UserForLoginDto() {
                         Email = userForRegistration.Email,
                         Password = userForRegistration.Password
                     };
-
-                    if (_authHelper.setPassword(userForSetPassword))
+                    if (_authHelper.SetPassword(userForSetPassword))
                     {
-
-                    string sqlAddUser = @"EXEC TutorialAppSchema.spUser_Upsert
-                        @FirstName = '" + userForRegistration.FirstName + 
-                        "', @LastName = '" + userForRegistration.LastName +
-                        "', @Email = '" + userForRegistration.Email + 
-                        "', @Gender = '" + userForRegistration.Gender + 
-                        "', @Active = 1" + 
-                        "', @JobTitle = '" + userForRegistration.JobTitle + 
-                        "', @Department = '" + userForRegistration.Department + 
-                        "', @Salary = '" + userForRegistration.Salary + "'";
-
+                        
+                        string sqlAddUser = @"EXEC TutorialAppSchema.spUser_Upsert
+                            @FirstName = '" + userForRegistration.FirstName + 
+                            "', @LastName = '" + userForRegistration.LastName +
+                            "', @Email = '" + userForRegistration.Email + 
+                            "', @Gender = '" + userForRegistration.Gender + 
+                            "', @Active = 1" + 
+                            ", @JobTitle = '" + userForRegistration.JobTitle + 
+                            "', @Department = '" + userForRegistration.Department + 
+                            "', @Salary = '" + userForRegistration.Salary + "'";
                         // string sqlAddUser = @"
                         //     INSERT INTO TutorialAppSchema.Users(
                         //         [FirstName],
@@ -72,29 +70,27 @@ namespace DotnetAPI.Controllers
                         //         "', '" + userForRegistration.Email + 
                         //         "', '" + userForRegistration.Gender + 
                         //         "', 1)";
-
                         if (_dapper.ExecuteSql(sqlAddUser))
                         {
                             return Ok();
                         }
                         throw new Exception("Failed to add user.");
                     }
-                    throw new Exception("Failed to register user.");  
+                    throw new Exception("Failed to register user.");
                 }
-                throw new Exception("User with this email already exists");
+                throw new Exception("User with this email already exists!");
             }
             throw new Exception("Passwords do not match!");
         }
 
         [HttpPut("ResetPassword")]
-        public IActionResult ResetPassword( UserForLoginDto userForSetPassword )
+        public IActionResult ResetPassword(UserForLoginDto userForSetPassword)
         {
-            if (_authHelper.setPassword(userForSetPassword))
+            if (_authHelper.SetPassword(userForSetPassword))
             {
                 return Ok();
             }
             throw new Exception("Failed to update password!");
-
         }
 
         [AllowAnonymous]
@@ -138,19 +134,16 @@ namespace DotnetAPI.Controllers
         }
 
         [HttpGet("RefreshToken")]
-        public IActionResult RefreshToken()
+        public string RefreshToken()
         {
-            string userId = User.FindFirst("userId")?.Value + "";
+            string userIdSql = @"
+                SELECT UserId FROM TutorialAppSchema.Users WHERE UserId = '" +
+                User.FindFirst("userId")?.Value + "'";
+            
+            int userId = _dapper.LoadDataSingle<int>(userIdSql);
 
-            string userIdSql = @"SELECT UserId 
-                                 FROM TutorialAppSchema.Users 
-                                 WHERE UserId = '" + userId + "'"; 
-
-            int userIdFromDb = _dapper.LoadDataSingle<int>(userIdSql); 
-
-            return Ok(new Dictionary<string, string>{
-                {"token", _authHelper.CreateToken(userIdFromDb)}
-            });        
+            return _authHelper.CreateToken(userId);
         }
+
     }
 }

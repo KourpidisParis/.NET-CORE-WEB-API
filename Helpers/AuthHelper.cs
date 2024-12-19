@@ -3,6 +3,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Dapper;
 using DotnetAPI.Data;
 using DotnetAPI.Dtos;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
@@ -15,10 +16,11 @@ namespace DotnetAPI.Helpers
     {
         private readonly IConfiguration _config;
         private readonly DataContextDapper _dapper;
+
         public AuthHelper(IConfiguration config)
         {
-            _config = config;
             _dapper = new DataContextDapper(config);
+            _config = config;
         }
         public byte[] GetPasswordHash(string password, byte[] passwordSalt)
         {
@@ -34,31 +36,32 @@ namespace DotnetAPI.Helpers
             );
         }
 
+
         public string CreateToken(int userId)
         {
-            Claim[] claims = new Claim[]{
-                new Claim("userId",userId.ToString())
+            Claim[] claims = new Claim[] {
+                new Claim("userId", userId.ToString())
             };
-
+            
             string? tokenKeyString = _config.GetSection("AppSettings:TokenKey").Value;
 
             SymmetricSecurityKey tokenKey = new SymmetricSecurityKey(
                     Encoding.UTF8.GetBytes(
                         tokenKeyString != null ? tokenKeyString : ""
                     )
-            );
+                );
 
             SigningCredentials credentials = new SigningCredentials(
-                tokenKey, 
-                SecurityAlgorithms.HmacSha512Signature
-            );
+                    tokenKey, 
+                    SecurityAlgorithms.HmacSha512Signature
+                );
 
             SecurityTokenDescriptor descriptor = new SecurityTokenDescriptor()
-            {
-                Subject = new ClaimsIdentity(claims),
-                SigningCredentials = credentials,
-                Expires = DateTime.Now.AddDays(1)
-            }; 
+                {
+                    Subject = new ClaimsIdentity(claims),
+                    SigningCredentials = credentials,
+                    Expires = DateTime.Now.AddDays(1)
+                };
 
             JwtSecurityTokenHandler tokenHandler = new JwtSecurityTokenHandler();
 
@@ -68,10 +71,11 @@ namespace DotnetAPI.Helpers
 
         }
 
-        public bool setPassword(UserForLoginDto userForSetPassword)
+        public bool SetPassword(UserForLoginDto userForSetPassword)
         {
+            
             byte[] passwordSalt = new byte[128 / 8];
-            using (RandomNumberGenerator rng = RandomNumberGenerator.Create() )
+            using (RandomNumberGenerator rng = RandomNumberGenerator.Create())
             {
                 rng.GetNonZeroBytes(passwordSalt);
             }
@@ -79,26 +83,23 @@ namespace DotnetAPI.Helpers
             byte[] passwordHash = GetPasswordHash(userForSetPassword.Password, passwordSalt);
 
             string sqlAddAuth = @"EXEC TutorialAppSchema.spRegistration_Upsert
-                    @Email = @EmailParam,
-                    @PasswordHash = PasswordHashParam,
-                    @PasswordSalt = PasswordSaltParam";
+                @Email = @EmailParam, 
+                @PasswordHash = @PasswordHashParam, 
+                @PasswordSalt = @PasswordSaltParam";
+            
+            DynamicParameters sqlParameters = new DynamicParameters();
 
-            List<SqlParameter> sqlParameters = new List<SqlParameter>();
+            // SqlParameter emailParameter = new SqlParameter("@EmailParam", SqlDbType.VarChar);
+            // emailParameter.Value = userForLogin.Email;
+            // sqlParameters.Add(emailParameter);
 
-            SqlParameter emailParameter = new SqlParameter("@EmailParam", SqlDbType.VarChar);
-            emailParameter.Value = passwordSalt;
-            sqlParameters.Add(emailParameter);
-
-            SqlParameter passwordSaltParameter = new SqlParameter("@PasswordSaltParam", SqlDbType.VarBinary);
-            passwordSaltParameter.Value = passwordSalt;
-            sqlParameters.Add(passwordSaltParameter);
-
-            SqlParameter passwordHashParameter = new SqlParameter("@PasswordHashParam", SqlDbType.VarBinary);
-            passwordHashParameter.Value = passwordHash;
-            sqlParameters.Add(passwordHashParameter);
+            sqlParameters.Add("@EmailParam", userForSetPassword.Email, DbType.String);
+            sqlParameters.Add("@PasswordHashParam", passwordHash, DbType.Binary);
+            sqlParameters.Add("@PasswordSaltParam", passwordSalt, DbType.Binary);
 
             return _dapper.ExecuteSqlWithParameters(sqlAddAuth, sqlParameters);
         }
-    
+
+        
     }
 }
